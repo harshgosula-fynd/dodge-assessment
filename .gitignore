@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# DuckDB
+*.duckdb
+*.duckdb.wal
+
+# Environment
+.env
+
+# Node
+node_modules/
+.next/
+
+# IDE
+.claude/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
