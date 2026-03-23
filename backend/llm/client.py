@@ -10,36 +10,36 @@ from config import PROJECT_ROOT
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
-# Priority: OpenAI > Gemini > Groq
-if OPENAI_API_KEY:
-    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
-elif GEMINI_API_KEY:
-    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
-else:
-    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq")
+def _get_key(name: str) -> str:
+    return os.getenv(name, "")
 
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+
+def _get_provider() -> str:
+    if os.getenv("LLM_PROVIDER"):
+        return os.getenv("LLM_PROVIDER", "openai")
+    if os.getenv("OPENAI_API_KEY"):
+        return "openai"
+    if os.getenv("GEMINI_API_KEY"):
+        return "gemini"
+    return "groq"
 
 
 async def call_llm(prompt: str, temperature: float = 0.0, max_tokens: int = 1024) -> str:
     """Call the configured LLM with retry on rate limits."""
     last_err: Exception | None = None
 
+    provider = _get_provider()
     for attempt in range(3):
         try:
-            if LLM_PROVIDER == "openai":
+            if provider == "openai":
                 return await _call_openai(prompt, temperature, max_tokens)
-            elif LLM_PROVIDER == "gemini":
+            elif provider == "gemini":
                 return await _call_gemini(prompt, temperature, max_tokens)
-            elif LLM_PROVIDER == "groq":
+            elif provider == "groq":
                 return await _call_groq(prompt, temperature, max_tokens)
             else:
-                raise ValueError(f"Unknown LLM provider: {LLM_PROVIDER}")
+                raise ValueError(f"Unknown LLM provider: {provider}")
         except httpx.HTTPStatusError as e:
             last_err = e
             if e.response.status_code == 429 and attempt < 2:
@@ -53,13 +53,13 @@ async def call_llm(prompt: str, temperature: float = 0.0, max_tokens: int = 1024
 async def _call_openai(prompt: str, temperature: float, max_tokens: int) -> str:
     url = "https://api.openai.com/v1/chat/completions"
     payload = {
-        "model": OPENAI_MODEL,
+        "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
         "messages": [{"role": "user", "content": prompt}],
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
     headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Authorization": f"Bearer {_get_key('OPENAI_API_KEY')}",
         "Content-Type": "application/json",
     }
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -72,7 +72,7 @@ async def _call_openai(prompt: str, temperature: float, max_tokens: int) -> str:
 async def _call_gemini(prompt: str, temperature: float, max_tokens: int) -> str:
     url = (
         f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+        f"{os.getenv('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent?key={_get_key('GEMINI_API_KEY')}"
     )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -97,7 +97,7 @@ async def _call_groq(prompt: str, temperature: float, max_tokens: int) -> str:
         "max_tokens": max_tokens,
     }
     headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Authorization": f"Bearer {_get_key('GROQ_API_KEY')}",
         "Content-Type": "application/json",
     }
     async with httpx.AsyncClient(timeout=30.0) as client:
