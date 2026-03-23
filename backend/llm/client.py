@@ -1,6 +1,7 @@
 """LLM API client. Supports OpenAI, Gemini, and Groq."""
 
 import asyncio
+import logging
 import os
 
 import httpx
@@ -8,7 +9,10 @@ from dotenv import load_dotenv
 
 from config import PROJECT_ROOT
 
-load_dotenv(PROJECT_ROOT / ".env")
+# override=False ensures Railway env vars are NOT overwritten by .env file
+load_dotenv(PROJECT_ROOT / ".env", override=False)
+
+logger = logging.getLogger(__name__)
 
 
 def _get_key(name: str) -> str:
@@ -30,6 +34,8 @@ async def call_llm(prompt: str, temperature: float = 0.0, max_tokens: int = 1024
     last_err: Exception | None = None
 
     provider = _get_provider()
+    key = _get_key("OPENAI_API_KEY") if provider == "openai" else _get_key("GEMINI_API_KEY") if provider == "gemini" else _get_key("GROQ_API_KEY")
+    logger.info(f"LLM provider={provider}, key_length={len(key)}, key_prefix={key[:8]}..." if key else f"LLM provider={provider}, key=EMPTY")
     for attempt in range(3):
         try:
             if provider == "openai":
